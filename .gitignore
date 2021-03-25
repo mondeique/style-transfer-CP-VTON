@@ -5,6 +5,7 @@ results/
 
 dataset/
 data/dataset
+data/junk_data
 data/dataset.zip
 data/raw_data.zip
 data/__pycache__
