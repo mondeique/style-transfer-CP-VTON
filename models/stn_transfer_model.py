@@ -8,6 +8,7 @@ from . import networks
 from util.gramMatrix import StyleLoss
 import torchvision
 import torch.nn.functional as F
+from util.wasserstein_loss import calc_gradient_penalty
 
 
 class STNTransferModel(BaseModel):
@@ -27,7 +28,7 @@ class STNTransferModel(BaseModel):
         if self.isTrain:
             self.model_names = ['G_A', 'D_A']
         else:  # during test time, only load Gs
-            self.model_names = [ 'G_A']
+            self.model_names = ['G_A']
 
         # load/define networks
 
@@ -101,6 +102,17 @@ class STNTransferModel(BaseModel):
         loss_D.backward()
         return loss_D
 
+    def backward_D(self):
+        # pred_real = self.netD(self.image_mask)
+        # self.loss_D_1 = self.criterionGAN(pred_real, True)
+        #
+        # pred_fake = self.netD(self.warped_cloth.detach())
+        # self.loss_D_2 = self.criterionGAN(pred_fake, False)
+        # self.loss_D = (self.loss_D_1 + self.loss_D_2) * 0.5
+        grad_penalty_A = calc_gradient_penalty(self.netD_A, self.fake_image, self.image_mask)
+        self.loss_D_A = torch.mean(self.netD_A(self.fake_image)) - torch.mean(self.netD_A(self.image_mask)) + grad_penalty_A
+        self.loss_D_A.backward(retain_graph=True)
+
     def backward_D_A(self):
         self.loss_D_A = self.backward_D_basic(self.netD_A, self.real_image, self.final_image)
 
@@ -108,12 +120,12 @@ class STNTransferModel(BaseModel):
         # GAN loss D_A(G_A(A))
         self.loss_content_vgg, self.loss_style_vgg = self.get_vgg_loss()
         # GAN loss D_B(G_B(B))
-        self.loss_G_A = self.criterionGAN(self.netD_A(torch.cat([self.final_image], dim=1)), True)
+        self.loss_G_A = self.criterionGAN(self.netD_A(torch.cat([self.fake_image], dim=1)), True)
         self.loss_GMM = 100 * self.criterionL1(self.warped_cloth, self.fake_image)
 
         # combined loss
         self.loss_G = self.loss_G_A + self.loss_content_vgg + self.loss_GMM #+ self.loss_style_vgg
-        self.loss_G.backward()
+        self.loss_G.backward(retain_graph=True)
 
     def optimize_parameters(self):
         self.forward()
@@ -127,6 +139,6 @@ class STNTransferModel(BaseModel):
         self.set_requires_grad([self.netD_A, self.netG_A], True)
         self.set_requires_grad([self.netGMM], False)
         self.optimizer_D.zero_grad()
-        self.backward_D_A()
+        self.backward_D()
         # # self.backward_D_B()
         self.optimizer_D.step()
