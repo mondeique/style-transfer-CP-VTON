@@ -35,7 +35,7 @@ def filter_upper_clothes(image):
     c[c == 1] = 255
     return c
 
-raw_data_path = '/home/ubuntu/Desktop/style-transfer-antonio/tmp/pycharm_project_319/data/raw_data'
+raw_data_path = '/home/ubuntu/Desktop/style-transfer-antonio/data/raw_data'
 for product in sorted(os.listdir(raw_data_path)):
     product_path = os.path.join(raw_data_path, product)
     for color in sorted(os.listdir(product_path)):
